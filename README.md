@@ -4,6 +4,17 @@ A focused answer to Nathalie’s Supabase Storage / Next.js practical validation
 
 **Start with [`SUBMISSION.md`](SUBMISSION.md)** for the client-facing explanation and complete SQL + server code. The reader is an additional demonstration, not an implementation of the complete platform.
 
+## Hosted validation
+
+- Live reader: https://brivel-reader-validation.vercel.app
+- Client code submission (unlisted GitHub Gist): https://gist.github.com/roshankoitechs/89bb88f102463f6aabd2907e718f82d3
+- Click **Open private chapter**. Purchased reader: `reader@brivel.test`, password `Brivel-Demo-2026!`.
+- Negative case: `visitor@brivel.test`, same demo password; authentication succeeds but chapter access is denied.
+
+These are disposable demonstration identities with synthetic artwork. The demo has no checkout or registration. Only the Supabase URL, publishable key and chapter UUID are configured on Vercel. Administrative fixture credentials are not deployed. The deployed Node major is pinned to 22, matching local verification and CI.
+
+See [`docs/DELIVERY.md`](docs/DELIVERY.md) for the sharing links and final browser/cloud verification.
+
 ## What is implemented
 
 - Next.js App Router Route Handler; TypeScript in strict mode; generated database types.
@@ -35,7 +46,7 @@ For a real launch: create purchases only after a verified, idempotent server-to-
 
 ## Run the reader
 
-Prerequisite: **Node 22.22.2+** (see `.nvmrc`). Dependencies are locked.
+Prerequisite: **Node 22, version 22.22.2 or later in that major** (see `.nvmrc`). Dependencies are locked.
 
 ```sh
 npm ci

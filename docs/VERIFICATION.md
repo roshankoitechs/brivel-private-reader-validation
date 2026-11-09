@@ -6,7 +6,7 @@ Date: 9 November 2026. Author: Roshan / `roshankoitechs`.
 
 - Node 22.23.4; Next.js 16.4.5; React 19.3.1; Supabase JS 2.119.0.
 - Supabase CLI 3.0.0; local PostgreSQL 17.11, Auth 2.197.0, Storage API 1.88.0, PostgREST 16.5.
-- Actual local Docker services; no customer/cloud project or real transactions.
+- Full integration suite uses actual local Docker services. Additional hosted smoke checks use the separate Brivel Supabase demo project and Vercel deployment described below. No real transactions or customer data.
 
 ## Automated checks
 
@@ -47,7 +47,27 @@ RLS tests additionally verify exact object mappings (including unmapped objects 
 
 ## What this does not verify
 
-No production cloud deployment, payment gateway, underwriting, uploader or checkout was exercised; they are outside the requested validation. The full HTTP suite is reproducible locally and is not part of the short GitHub CI job. GitHub CI runs tests, TypeScript, the production build and dependency audit. Signed URLs are access control, not DRM, and the 120-second route lifetime is not a global cap on an authorized buyer's direct Storage signing requests.
+No payment gateway, underwriting, uploader or checkout was exercised; they are outside the requested validation. The full HTTP suite is reproducible locally and is not part of the short GitHub CI job. GitHub CI runs tests, TypeScript, the production build and dependency audit. Signed URLs are access control, not DRM, and the 120-second route lifetime is not a global cap on an authorized buyer's direct Storage signing requests.
+
+## Hosted functional verification
+
+Published on 9 November 2026 at https://brivel-reader-validation.vercel.app using the same Next.js application and migration, with a separate cloud Supabase project. Vercel's production build completed successfully on Node 22. Only public Supabase configuration was supplied to hosting.
+
+Nine additional real HTTPS checks passed:
+
+1. Anonymous public homepage returns 200.
+2. Anonymous chapter request returns 401 with `no-store`.
+3. Malformed chapter identifier returns 400.
+4. Purchased reader receives three ordered private panel URLs.
+5. Every downloaded PNG is 2400px wide and matches the uploaded original's SHA-256.
+6. Every signed token has `exp - iat === 120`.
+7. Authenticated visitor without a purchase is denied by the Next.js endpoint, PostgreSQL and direct Storage signing.
+8. Public object URLs cannot retrieve private bucket contents.
+9. A previously working cloud signed URL is rejected by Storage after waiting until expiry plus three seconds.
+
+Chrome review of this public URL passed: chapter selection and next-chapter state, notes open/close, reader width, native required-field validation, wrong-password feedback, purchased-reader sign-in, all three private image loads, return to preview, no-purchase denial, Escape and focus return, and 390px / 320px layouts without horizontal overflow. No console warnings/errors were recorded for the reviewed production tab. Temporary viewport overrides were reset afterward.
+
+The public Gist and raw Markdown were also fetched without GitHub authentication and matched the canonical submission. The repository remains private; the Gist is unlisted and readable by anyone with its link.
 
 ## Final requirement audit
 

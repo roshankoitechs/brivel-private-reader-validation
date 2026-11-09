@@ -34,7 +34,7 @@
     "vitest": "4.1.12"
   },
   "engines": {
-    "node": ">=22.22.2"
+    "node": ">=22.22.2 <23"
   },
   "packageManager": "npm@10.8.2",
   "type": "module"
