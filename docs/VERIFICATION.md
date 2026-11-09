@@ -67,7 +67,7 @@ Nine additional real HTTPS checks passed:
 
 Chrome review of this public URL passed: chapter selection and next-chapter state, notes open/close, reader width, native required-field validation, wrong-password feedback, purchased-reader sign-in, all three private image loads, return to preview, no-purchase denial, Escape and focus return, and 390px / 320px layouts without horizontal overflow. No console warnings/errors were recorded for the reviewed production tab. Temporary viewport overrides were reset afterward.
 
-The public Gist and raw Markdown were also fetched without GitHub authentication and matched the canonical submission. The repository remains private; the Gist is unlisted and readable by anyone with its link.
+The public Gist and raw Markdown were also fetched without GitHub authentication and matched the canonical submission. The complete repository is public for link-based review; the Gist is unlisted and readable by anyone with its link.
 
 ## Final requirement audit
 

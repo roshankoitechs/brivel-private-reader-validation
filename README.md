@@ -4,7 +4,7 @@ A focused answer to Nathalie’s Supabase Storage / Next.js practical validation
 
 **Start with [`SUBMISSION.md`](SUBMISSION.md)** for the client-facing explanation and complete SQL + server code. The reader is an additional demonstration, not an implementation of the complete platform.
 
-This private repository contains the complete application, database migration, original artwork, fixture scripts and tests. Reviewers need GitHub repository access to clone it. The hosted demo can be reviewed without GitHub access.
+This public repository contains the complete application, database migration, original artwork, fixture scripts and tests. Anyone can review or clone the source without a GitHub invitation. The hosted demo can also be reviewed without a GitHub account.
 
 ## Contents
 

@@ -3,6 +3,7 @@
 ## Send to Nathalie
 
 - Working reader: https://brivel-reader-validation.vercel.app
+- Complete source and English setup/testing README: https://github.com/roshankoitechs/brivel-private-reader-validation
 - SQL and standalone Next.js server code: https://gist.github.com/roshankoitechs/89bb88f102463f6aabd2907e718f82d3
 - Raw Markdown alternative: https://gist.githubusercontent.com/roshankoitechs/89bb88f102463f6aabd2907e718f82d3/raw/SUBMISSION.md
 
@@ -14,12 +15,11 @@ The ready-to-send English note is in [`CLIENT-REPLY.md`](CLIENT-REPLY.md). Nothi
 
 ## Roshan's management links
 
-- Private repository: https://github.com/roshankoitechs/brivel-private-reader-validation
 - CI: https://github.com/roshankoitechs/brivel-private-reader-validation/actions
 - Vercel project: https://vercel.com/roshankoitechs-8620s-projects/brivel-reader-validation
 - Supabase project: https://supabase.com/dashboard/project/jvmqcshybsetnwafbtqw
 
-These management pages require the respective account permissions and are not client demo links. Vercel and Supabase were opened as `roshan.koitechs@gmail.com`; GitHub owner is `roshankoitechs`.
+The source repository and CI results are public. The Vercel and Supabase dashboards require the respective account permissions. Vercel and Supabase were opened as `roshan.koitechs@gmail.com`; GitHub owner is `roshankoitechs`.
 
 Vercel contains only three public application settings: Supabase URL, publishable key and target chapter UUID. The temporary deployment token was scoped only to this Vercel project with a one-hour expiry. The administrative Supabase key used to seed fixtures was never deployed or committed.
 
