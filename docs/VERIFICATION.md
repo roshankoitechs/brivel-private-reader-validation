@@ -15,7 +15,7 @@ Date: 9 November 2026. Author: Roshan / `roshankoitechs`.
 | Endpoint pipeline tests                              | 22 passed         |
 | Configuration key/URL tests                          | 7 passed          |
 | Actual PostgreSQL RLS and grant tests (PGlite)       | 11 passed         |
-| Full local Supabase HTTP integration                 | 18 passed         |
+| Full local Supabase HTTP integration                 | 23 passed         |
 | Reader lifecycle regression tests                    | 11 passed         |
 | Reader view regression (sample to purchased chapter) | 1 passed          |
 | Source and standalone submission HTTP contracts      | 6 passed          |
@@ -23,7 +23,7 @@ Date: 9 November 2026. Author: Roshan / `roshankoitechs`.
 | Next.js optimized production build                   | Passed            |
 | npm dependency audit (including dev dependencies)    | 0 vulnerabilities |
 
-The 18 integration checks cover the buyer's manifest, exact signed JWT lifetime (`exp - iat = 120`), real PNG retrieval without cookies, guest and forged-token denial, another user's chapter, unpurchased chapters, direct unauthorized Storage signing, public URL denial, purchase/mapping write denial, pending/refunded/revoked purchases, the documented post-revocation validity of an existing URL, tampering, and **actual expiry rejection after waiting for the URL's expiry timestamp plus 3 seconds**. Disposable users, chapters and objects were removed afterward.
+The final 23-check integration pass covers multiple out-of-order 2400px-wide PNG panels, byte-for-byte SHA-256 equality with the uploaded originals, dimensions preserved without downscaling, the buyer's manifest, exact lifetime for every token (`exp - iat = 120`), guest and forged-token denial, another user's chapter, unpurchased chapters, direct unauthorized signing, public URL denial, user-ID/path/expiry override attempts, cross-chapter reuse of a signed token, purchase/mapping write denial, pending/refunded/disputed/revoked purchases, post-revocation validity of an existing URL, tampering, **actual expiry rejection after waiting until expiry plus 3 seconds**, and fail-closed behavior when an underlying panel is missing. Disposable users, chapters and objects were removed afterward.
 
 RLS tests additionally verify exact object mappings (including unmapped objects inside a purchased chapter folder), empty JWT subject, anonymous table privileges, and resilience to an accidentally broad permissive Storage SELECT policy.
 
@@ -48,3 +48,7 @@ RLS tests additionally verify exact object mappings (including unmapped objects 
 ## What this does not verify
 
 No production cloud deployment, payment gateway, underwriting, uploader or checkout was exercised; they are outside the requested validation. The full HTTP suite is reproducible locally and is not part of the short GitHub CI job. GitHub CI runs tests, TypeScript, the production build and dependency audit. Signed URLs are access control, not DRM, and the 120-second route lifetime is not a global cap on an authorized buyer's direct Storage signing requests.
+
+## Final requirement audit
+
+See [`ACCEPTANCE.md`](ACCEPTANCE.md) for the original practical task mapped to implementation and evidence. The 58 automated checks and 23 real HTTP integration checks passed again, as did strict TypeScript, the production build and dependency audit (0 vulnerabilities). The literal absolute anti-extraction/piracy promise is explicitly marked unachievable rather than passed. No client receipt or acceptance is claimed.

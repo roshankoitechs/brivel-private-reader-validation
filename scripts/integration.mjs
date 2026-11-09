@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { setTimeout as pause } from 'node:timers/promises';
 import { localClients, must, panelBytes } from './local-support.mjs';
 const { status, admin, newClient } = localClients();
@@ -46,31 +46,48 @@ try {
       .select('id')
       .single(),
   );
-  for (const id of [chapter, foreignChapter]) {
-    const path = `${id}/1.png`;
+  const expected = new Map();
+  const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+  // Insert out of order: the returned manifest must still follow panel position.
+  for (const fixture of [
+    { chapterId: chapter, position: 2, art: 'letter' },
+    { chapterId: chapter, position: 1, art: 'harbour' },
+    { chapterId: foreignChapter, position: 1, art: 'harbour' },
+  ]) {
+    const path = `${fixture.chapterId}/${fixture.position}.png`;
+    const id = randomUUID();
+    const bytes = await panelBytes(fixture.art, 2400);
+    const width = bytes.readUInt32BE(16),
+      height = bytes.readUInt32BE(20);
+    expected.set(id, { path, width, height, hash: sha256(bytes) });
     paths.push(path);
     must(
       await admin.storage
         .from('comic-panels')
-        .upload(path, await panelBytes(), { contentType: 'image/png', cacheControl: '0' }),
+        .upload(path, bytes, { contentType: 'image/png', cacheControl: '0' }),
     );
     must(
       await admin
         .from('chapter_panels')
         .insert({
-          chapter_id: id,
-          position: 1,
+          id,
+          chapter_id: fixture.chapterId,
+          position: fixture.position,
           object_path: path,
-          alt_text: 'Integration fixture',
-          width: 900,
-          height: 690,
+          alt_text: 'High-resolution integration fixture',
+          width,
+          height,
         }),
     );
   }
-  const api = (token, id = chapter) =>
+  const api = (token, id = chapter, body) =>
     fetch(`${base}/api/chapters/${id}/panels`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
     });
   let manifest, issuedToken;
   await check('Buyer receives chapter manifest; response is never cached', async () => {
@@ -79,18 +96,64 @@ try {
     assert.match(r.headers.get('cache-control'), /no-store/);
     manifest = await r.json();
     assert.equal(manifest.expiresIn, 120);
-    assert.equal(manifest.panels.length, 1);
+    assert.equal(manifest.panels.length, 2);
+    assert.deepEqual(
+      manifest.panels.map((p) => p.position),
+      [1, 2],
+    );
   })();
-  await check('Actual signed JWT lifetime is exactly 120 seconds', async () => {
+  await check('Every actual signed JWT has a lifetime of exactly 120 seconds', async () => {
     issuedToken = new URL(manifest.panels[0].url).searchParams.get('token');
-    const claims = JSON.parse(Buffer.from(issuedToken.split('.')[1], 'base64url'));
-    assert.equal(claims.exp - claims.iat, 120);
+    for (const panel of manifest.panels) {
+      const token = new URL(panel.url).searchParams.get('token');
+      const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url'));
+      assert.equal(claims.exp - claims.iat, 120);
+    }
   })();
-  await check('Signed URL returns real high-resolution PNG without cookies', async () => {
-    const r = await fetch(manifest.panels[0].url);
-    assert.equal(r.status, 200);
-    assert.match(r.headers.get('content-type'), /image\/png/);
-    assert.ok((await r.arrayBuffer()).byteLength > 5000);
+  await check(
+    'Multiple 2400px PNGs download byte-for-byte without cookies or downscaling',
+    async () => {
+      for (const panel of manifest.panels) {
+        const r = await fetch(panel.url);
+        assert.equal(r.status, 200);
+        assert.match(r.headers.get('content-type'), /image\/png/);
+        const bytes = Buffer.from(await r.arrayBuffer()),
+          fixture = expected.get(panel.id);
+        assert.equal(bytes.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+        assert.equal(bytes.readUInt32BE(16), 2400);
+        assert.equal(bytes.readUInt32BE(16), panel.width);
+        assert.equal(bytes.readUInt32BE(20), panel.height);
+        assert.equal(sha256(bytes), fixture.hash);
+      }
+    },
+  )();
+  await check(
+    'Caller cannot override object paths or the 120-second endpoint lifetime',
+    async () => {
+      const r = await api(auth.session.access_token, chapter, {
+        user_id: users[1].id,
+        object_path: `${foreignChapter}/1.png`,
+        bucket: 'other',
+        expiresIn: 3600,
+      });
+      assert.equal(r.status, 200);
+      const body = await r.json();
+      assert.equal(body.expiresIn, 120);
+      assert.deepEqual(
+        body.panels.map((p) => p.id),
+        manifest.panels.map((p) => p.id),
+      );
+      for (const panel of body.panels) {
+        const token = new URL(panel.url).searchParams.get('token');
+        const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url'));
+        assert.equal(claims.exp - claims.iat, 120);
+      }
+    },
+  )();
+  await check('A valid signed token cannot be reused for a different chapter path', async () => {
+    const url = new URL(manifest.panels[0].url);
+    url.pathname = `/storage/v1/object/sign/comic-panels/${foreignChapter}/1.png`;
+    assert.notEqual((await fetch(url)).status, 200);
   })();
   await check('Guest endpoint returns 401', async () => {
     assert.equal((await api(null)).status, 401);
@@ -104,6 +167,10 @@ try {
   await check('Another user cannot request buyer chapter', async () => {
     const session = must(await stranger.auth.getSession()).session;
     assert.equal((await api(session.access_token)).status, 404);
+  })();
+  await check('A stranger cannot impersonate a buyer using request body fields', async () => {
+    const session = must(await stranger.auth.getSession()).session;
+    assert.equal((await api(session.access_token, chapter, { user_id: users[0].id })).status, 404);
   })();
   await check('Direct Storage signing is denied to another user', async () => {
     const r = await stranger.storage.from('comic-panels').createSignedUrl(paths[0], 120);
@@ -145,6 +212,11 @@ try {
     assert.equal((await api(auth.session.access_token)).status, 404);
     assert.ok((await buyer.storage.from('comic-panels').createSignedUrl(paths[0], 120)).error);
   })();
+  await check('Disputed purchase cannot read or sign', async () => {
+    must(await admin.from('purchases').update({ status: 'disputed' }).eq('id', purchase.id));
+    assert.equal((await api(auth.session.access_token)).status, 404);
+    assert.ok((await buyer.storage.from('comic-panels').createSignedUrl(paths[0], 120)).error);
+  })();
   await check('Revoked purchase cannot read or sign', async () => {
     must(
       await admin
@@ -171,6 +243,21 @@ try {
     await pause(Math.min(10000, (claims.exp + 3) * 1000 - Date.now()));
   await check('Expired signed URL is rejected by the real Storage API', async () => {
     assert.notEqual((await fetch(manifest.panels[0].url)).status, 200);
+  })();
+  await check('A missing panel fails the whole batch without returning partial URLs', async () => {
+    must(
+      await admin
+        .from('purchases')
+        .update({ status: 'paid', revoked_at: null })
+        .eq('id', purchase.id),
+    );
+    const path = expected.get(manifest.panels[1].id).path;
+    must(await admin.storage.from('comic-panels').remove([path]));
+    const r = await api(auth.session.access_token);
+    assert.equal(r.status, 503);
+    const body = await r.json();
+    assert.equal(body.panels, undefined);
+    assert.equal(typeof body.error, 'string');
   })();
   console.log(
     `PASS ${count} integration checks against real local Supabase Auth, PostgreSQL, Storage and Next.js.`,

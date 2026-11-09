@@ -1,0 +1,39 @@
+# Acceptance check against Nathalie’s practical validation
+
+Reviewed: 9 November 2026. Scope: **Supabase Private Storage & Next.js Signed URL Pipeline**, the practical task recorded in the comment on the [Nathalie Issa / brivel card](https://app.notion.com/p/koitechs/Nathalie-Issa-brivel-41088de61870805e8a5fd42998a4df7c). [SLS-18](https://linear.app/koitechs/issue/SLS-18) links that source. The separate platform job description is context; this acceptance record evaluates the practical validation.
+
+| Requirement                                                                         | Implementation and evidence                                                                                                                                                                                                                                                                                                                                                                                                               | Result                                                    |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Server-side code using a Next.js API Route or Supabase Edge Function                | `src/app/api/chapters/[chapterId]/panels/route.ts` is a Next.js App Router Route Handler. `SUBMISSION.md` includes a complete standalone JavaScript form. Shared HTTP contracts execute both versions with the real Supabase SDK and stubbed upstream responses. Full integration exercises the Next.js production server and actual local Supabase.                                                                                      | Verified                                                  |
+| High-resolution comic panels in a private Supabase Storage bucket                   | Migration creates `comic-panels` with `public=false`. Integration uploads two vector-rasterized 2400px-wide PNGs, retrieves both through the signed URLs and verifies PNG dimensions and SHA-256 hashes against the uploaded originals. A public-object URL fails. The panel manifest preserves reading order despite out-of-order insertion.                                                                                             | Verified                                                  |
+| Strict RLS: authenticated user must have a valid purchase for that specific chapter | `purchases` SELECT policies require `auth.uid()`, `status='paid'` and no revocation. Chapter metadata and exact Storage object mappings inherit that entitlement. Guest, other buyer, forged token, missing purchase, pending/refunded/disputed/revoked purchase, forged body user ID, self-issued purchases and mapping edits are denied. RLS is evaluated under the reader’s JWT, without a service-role client in the reader endpoint. | Verified                                                  |
+| Dynamically generated URLs expiring in exactly 120 seconds                          | The server calls `createSignedUrls(paths,120)`. Integration checks `exp - iat === 120` for every returned token, verifies that caller-supplied expiry/path values cannot alter the endpoint result, waits for actual expiration and then confirms Storage rejects the URL. A signed token cannot be reused for another chapter path.                                                                                                      | Verified for URLs issued by this endpoint                 |
+| Clean failure behavior                                                              | Partial signing or a missing underlying panel causes a generic 503 response with no partial image manifest. No entitlement and unknown chapter have the same 404 response. Auth failure and temporary Auth-service failure are distinguished. Signed manifests are `private, no-store`; upstream requests have deadlines.                                                                                                                 | Verified                                                  |
+| Explicit PostgreSQL RLS policy syntax                                               | The complete executable SQL migration is included verbatim in the raw-code submission. PostgreSQL tests execute the migration and actual policies; HTTP integration additionally covers Supabase Auth, PostgREST and Storage.                                                                                                                                                                                                             | Verified                                                  |
+| Raw code as Markdown or a private GitHub Gist                                       | `SUBMISSION.md` contains the raw SQL and complete standalone route in Markdown code blocks, ready to paste into the client’s chat. Its generated code is checked for freshness before every unit test run and shares the endpoint HTTP contracts. The private repository stores the complete project; it is not presented as a Gist or as a client submission.                                                                            | Prepared in the raw-code option; not sent                 |
+| Completely block asset extraction and network-tab piracy                            | This cannot be guaranteed for a readable browser image. The signed URL itself lets its holder fetch the bytes before expiry; already-fetched bytes cannot be erased by URL expiry. The integration test deliberately downloads the complete original images with a valid URL.                                                                                                                                                             | Not achievable as literally phrased; explicitly disclosed |
+
+## Exact boundary of the 120-second guarantee
+
+The supplied server endpoint always requests a 120-second lifetime. The user-JWT/RLS model also lets a legitimately authorized buyer access Supabase directly. The endpoint’s lifetime must not be described as a global cap on all Storage requests by that buyer. This is already stated in the submission and README. Unpaid users remain blocked by RLS even when they bypass the Next.js endpoint.
+
+Supabase documents signed URLs as temporary file access and provides an explicit download option: [createSignedUrl](https://supabase.com/docs/reference/javascript/storage-from-createsignedurl), [serving private assets](https://supabase.com/docs/guides/storage/serving/downloads). The conclusion about saving delivered bytes follows from that access model and is demonstrated by the integration downloads.
+
+## Delivery and scheduling
+
+The original request gives a 48-hour submission window and proposes an interview after submission. This repository proves code behavior, not client receipt, acceptance, a deadline extension or an interview booking. Nothing has been sent to the client by this work.
+
+## Reproduction
+
+Follow the local setup in `README.md`, then run:
+
+```sh
+npm test
+npm run typecheck
+npm run build
+npm audit
+# With the production app and local Supabase running:
+npm run test:integration
+```
+
+The detailed counts and observed environment are recorded in `docs/VERIFICATION.md`. Local fixture administration uses only the disposable loopback Supabase stack; no cloud customer project is modified.

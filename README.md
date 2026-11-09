@@ -112,3 +112,5 @@ Integration tests exercise **real Supabase Auth, PostgreSQL, PostgREST, Storage 
 PGlite tests run the actual migration with minimal Supabase-owned schema fixtures. They validate PostgreSQL permissions and RLS, not a mocked access function. HTTP integration tests cover the real Storage service separately.
 
 See [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for the observed results and [`docs/CLIENT-REPLY.md`](docs/CLIENT-REPLY.md) for the ready-to-send note. Nothing has been sent to the client.
+
+The requirement-by-requirement result, including the unachievable absolute anti-extraction wording, is in [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md).

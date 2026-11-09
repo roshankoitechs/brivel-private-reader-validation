@@ -23,8 +23,8 @@ export function must(result) {
   if (result.error) throw new Error(result.error.message);
   return result.data;
 }
-export async function panelBytes(name = 'harbour') {
-  return sharp(readFileSync(`public/art/${name}.svg`))
+export async function panelBytes(name = 'harbour', width = 900) {
+  return sharp(readFileSync(`public/art/${name}.svg`), { density: (72 * width) / 900 })
     .png()
     .toBuffer();
 }
