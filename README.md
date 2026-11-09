@@ -16,6 +16,15 @@ A focused answer to Nathalie’s Supabase Storage / Next.js practical validation
 
 No checkout, payment integration, creator dashboard, paid content, real customer data or outgoing email is included. All sample illustrations are original vector assets made for this demonstration. Local private fixtures deliberately reuse these public illustrations so no proprietary art is needed for review.
 
+## Code boundaries and reuse
+
+- The Route Handler owns configuration, the request-scoped Supabase client and bounded upstream fetches. `panel-pipeline.ts` owns the authentication / RLS / signing response flow.
+- `panel-contract.ts` supplies the shared response types and validates the HTTP manifest before rendering. Generated database types cover the database query without a hand-cast row result.
+- `use-private-chapter.ts` owns request cancellation, serial auth transitions, URL renewal and sign-out. `sign-in-dialog.tsx` owns fields and native dialog behavior. `reader.tsx` composes the presentation; public fixtures live in `sample-story.ts`.
+- `npm run submission` derives the standalone **JavaScript** handler from the TypeScript source using the TypeScript parser/compiler. It does not maintain a second implementation. Every `npm test` checks that the committed submission is current and runs the same HTTP contract against source and generated handlers.
+
+The validation intentionally supports chapters with at most 50 panels, each with a unique object mapping. Changing this bound or building paginated loading is a separate reader requirement, not an anti-piracy feature.
+
 ## Security boundaries
 
 A signed URL is a bearer capability. Anyone holding it can retrieve the object until it expires. RLS is checked when the URL is issued, **not on every subsequent signed download**. Revocation stops new URLs but does not cancel an already-issued URL. Expiry also does not erase downloaded or already-rendered images. A screenshot or saved copy remains possible. This implementation therefore does not promise “complete prevention of network-tab piracy.”
@@ -26,7 +35,7 @@ For a real launch: create purchases only after a verified, idempotent server-to-
 
 ## Run the reader
 
-Prerequisite: **Node 22.19+** (see `.nvmrc`). Dependencies are locked.
+Prerequisite: **Node 22.22.2+** (see `.nvmrc`). Dependencies are locked.
 
 ```sh
 npm ci
@@ -81,7 +90,7 @@ No request body, user ID, object path, bucket, price or expiry is accepted from 
 - `404`: missing chapter or no valid entitlement, deliberately indistinguishable.
 - `503`: upstream, configuration or partial signing failure; no partial URLs or provider details leaked.
 
-The reader reauthorizes once if a lazily loaded image fails after the refresh hint. It does not continuously renew URLs in the background. Already-loaded images may remain visible after expiry. Refresh failure clears private panels and asks the reader to sign in again.
+The reader reauthorizes on demand when a lazily loaded private image fails after a conservative local refresh deadline. It supports successive expirations, coalesces simultaneous failures, ignores stale responses after navigation, and stops automatic retries if a newly issued image immediately fails. It does not continuously renew URLs in the background. Already-loaded images may remain visible after expiry. Refresh failure clears private panels and asks the reader to sign in again.
 
 ## Verification
 

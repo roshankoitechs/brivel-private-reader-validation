@@ -20,7 +20,12 @@ export async function POST(request: Request, context: { params: Promise<{ chapte
   const client = createClient<Database>(url!, key!, {
     global: {
       headers: { Authorization: request.headers.get('authorization') ?? '' },
-      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+      fetch: (input, init) =>
+        fetch(input, {
+          ...init,
+          cache: 'no-store',
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(10_000)]),
+        }),
     },
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });

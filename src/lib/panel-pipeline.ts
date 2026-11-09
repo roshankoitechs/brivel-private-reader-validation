@@ -1,3 +1,4 @@
+import type { PanelManifest } from './panel-contract';
 import type { Database } from './database.types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -10,16 +11,6 @@ const headers = {
   Vary: 'Authorization',
   'Referrer-Policy': 'no-referrer',
 };
-export type Panel = {
-  id: string;
-  position: number;
-  object_path: string;
-  alt_text: string;
-  width: number;
-  height: number;
-};
-export type SignedPanel = Omit<Panel, 'object_path'> & { url: string };
-export type PanelManifest = { panels: SignedPanel[]; expiresIn: 120; refreshAfter: string };
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers });
 }
@@ -37,6 +28,8 @@ export async function panelPipeline(
   try {
     // Verify with Auth; do not trust decoded JWTs or a client-supplied user ID.
     const { data: auth, error: authError } = await client.auth.getUser(match[1]);
+    if (authError && ![400, 401, 403].includes(authError.status ?? 0))
+      return json({ error: 'Authentication service is temporarily unavailable.' }, 503);
     if (authError || !auth.user || auth.user.is_anonymous)
       return json({ error: 'Sign in to read this chapter.' }, 401);
 
@@ -48,7 +41,7 @@ export async function panelPipeline(
       .order('position')
       .limit(51);
     if (readError) return json({ error: 'Unable to load this chapter. Please retry.' }, 503);
-    const panels = rows as Panel[] | null;
+    const panels = rows;
     // Same result for nonexistent, unpaid, refunded and revoked chapters.
     if (!panels?.length) return json({ error: 'Chapter unavailable or access not granted.' }, 404);
     if (panels.length > 50) return json({ error: 'Chapter configuration is invalid.' }, 503);
@@ -78,7 +71,7 @@ export async function panelPipeline(
       expiresIn: URL_TTL_SECONDS,
       // Conservative refresh hint, not a replacement for Storage's token expiry.
       refreshAfter: new Date(issuedAt + 105_000).toISOString(),
-    });
+    } satisfies PanelManifest);
   } catch {
     // Never log bearer tokens, paths, signed URLs or provider response bodies.
     return json({ error: 'Reading service is temporarily unavailable.' }, 503);

@@ -14,6 +14,7 @@ const panel = {
 function fixture(
   options: {
     authError?: boolean;
+    authStatus?: number;
     readError?: boolean;
     rows?: unknown[];
     signError?: boolean;
@@ -22,24 +23,20 @@ function fixture(
     anonymous?: boolean;
   } = {},
 ) {
-  const sign = vi
-    .fn()
-    .mockResolvedValue({
-      data: options.signed ?? [
-        { path: panel.object_path, signedUrl: 'https://storage.example/signed?token=redacted' },
-      ],
-      error: options.signError ? new Error('private provider detail') : null,
-    });
+  const sign = vi.fn().mockResolvedValue({
+    data: options.signed ?? [
+      { path: panel.object_path, signedUrl: 'https://storage.example/signed?token=redacted' },
+    ],
+    error: options.signError ? new Error('private provider detail') : null,
+  });
   const query = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
-    limit: vi
-      .fn()
-      .mockResolvedValue({
-        data: options.rows ?? [panel],
-        error: options.readError ? new Error('database detail') : null,
-      }),
+    limit: vi.fn().mockResolvedValue({
+      data: options.rows ?? [panel],
+      error: options.readError ? new Error('database detail') : null,
+    }),
   };
   const auth = vi.fn().mockImplementation(async () => {
     if (options.throw) throw new Error('network detail');
@@ -47,7 +44,9 @@ function fixture(
       data: {
         user: options.authError ? null : { id: 'buyer', is_anonymous: options.anonymous ?? false },
       },
-      error: options.authError ? new Error('token detail') : null,
+      error: options.authError
+        ? Object.assign(new Error('token detail'), { status: options.authStatus ?? 401 })
+        : null,
     };
   });
   const from = vi.fn().mockReturnValue(query);
@@ -101,6 +100,17 @@ describe('private panel pipeline', () => {
     expect((await panelPipeline(request(), chapter, f.client)).status).toBe(401);
     expect(f.from).not.toHaveBeenCalled();
   });
+  it.each([0, 429, 500, 503])(
+    'reports Auth outage/rate limiting (%s) as a retryable 503',
+    async (status) => {
+      const f = fixture({ authError: true, authStatus: status });
+      const r = await panelPipeline(request(), chapter, f.client);
+      expect(r.status).toBe(503);
+      expect(f.from).not.toHaveBeenCalled();
+      expect(f.sign).not.toHaveBeenCalled();
+      expect(await r.text()).not.toContain('token detail');
+    },
+  );
   it('rejects anonymous Supabase accounts', async () => {
     const f = fixture({ anonymous: true });
     expect((await panelPipeline(request(), chapter, f.client)).status).toBe(401);

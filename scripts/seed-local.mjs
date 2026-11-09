@@ -16,39 +16,44 @@ must(await admin.from('chapters').upsert({ id: chapter, title: 'Letters from the
 const purchased = must(
   await admin.from('purchases').select('id').eq('user_id', user.id).eq('chapter_id', chapter),
 );
-if (!purchased.length)
+if (purchased.length) {
+  must(
+    await admin
+      .from('purchases')
+      .update({ status: 'paid', revoked_at: null })
+      .eq('user_id', user.id)
+      .eq('chapter_id', chapter),
+  );
+} else {
   must(
     await admin.from('purchases').insert({ user_id: user.id, chapter_id: chapter, status: 'paid' }),
   );
+}
 for (const [i, name] of ['harbour', 'window', 'letter'].entries()) {
   const path = `${chapter}/${i + 1}.png`;
   must(
-    await admin.storage
-      .from('comic-panels')
-      .upload(path, await panelBytes(name), {
-        contentType: 'image/png',
-        cacheControl: '0',
-        upsert: true,
-      }),
+    await admin.storage.from('comic-panels').upload(path, await panelBytes(name), {
+      contentType: 'image/png',
+      cacheControl: '0',
+      upsert: true,
+    }),
   );
   must(
-    await admin
-      .from('chapter_panels')
-      .upsert(
-        {
-          chapter_id: chapter,
-          position: i + 1,
-          object_path: path,
-          alt_text: [
-            'A quiet harbour at dawn.',
-            'A cup of coffee beside a window overlooking the sea.',
-            'A sealed letter on a wooden table.',
-          ][i],
-          width: 900,
-          height: [690, 900, 800][i],
-        },
-        { onConflict: 'chapter_id,position' },
-      ),
+    await admin.from('chapter_panels').upsert(
+      {
+        chapter_id: chapter,
+        position: i + 1,
+        object_path: path,
+        alt_text: [
+          'A quiet harbour at dawn.',
+          'A cup of coffee beside a window overlooking the sea.',
+          'A sealed letter on a wooden table.',
+        ][i],
+        width: 900,
+        height: [690, 900, 800][i],
+      },
+      { onConflict: 'chapter_id,position' },
+    ),
   );
 }
 writeFileSync(
